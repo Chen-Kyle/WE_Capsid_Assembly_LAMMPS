@@ -40,6 +40,5 @@ python $WEST_SIM_ROOT/common_files/get_pcoord.py \
     > pc.dat
 
 cat pc.dat > $WEST_PCOORD_RETURN
-echo "Is this working?
 
 rm -f parent.restart
