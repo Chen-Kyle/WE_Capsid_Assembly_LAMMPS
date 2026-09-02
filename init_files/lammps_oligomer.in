@@ -1,0 +1,123 @@
+# HBV Decamer CG Oligomer Simulation
+# Translated from run_oligomer_simulation.py (OpenMM/Langevin)
+#
+# Unit system: real  (Angstroms, kcal/mol, femtoseconds, Kelvin, g/mol)
+#
+# Prerequisites — run the data-file generator first:
+#   python generate_lammps_data_backup.py \
+#       --pdb        decamer_sep.pdb   \
+#       --conndir    connect_files     \
+#       --contactdir .                 \
+#       --Enative    1.0
+#
+# This produces:
+#   decamer.lammps                      atom/bond topology (one type per chain+resnum)
+#   gaussian_native_{A,B,C,D}.table     tabulated Gaussian potentials
+#   harmonic_bond_coeffs.lammps         bond_coeff lines for ENM bonds
+#   native_contact_pair_coeffs.lammps   pair_coeff lines for native contacts
+#
+# Run:
+#   lmp -in lammps_oligomer.in -var nsteps 10000 -var output_dir {out_dir} -var nsteps 10000000 -var seed 42
+#
+# NOTE: Enative is baked into the Gaussian table files at generation time.
+# To use a different Enative, rerun generate_lammps_data.py --Enative <value>.
+# Erepulsion scales the soft-cosine amplitude and CAN be changed here freely.
+
+# ---------------------------------------------------------------------------
+# INPUT PARAMETERS  (override via -var on the command line)
+# ---------------------------------------------------------------------------
+variable    Erepulsion  index 1.0      # dimensionless scale on cosine repulsion
+variable    myseed      index 42       # Langevin random seed
+variable    nsteps      index 10000    # number of time steps
+variable    output_dir  index ""       # name of desired output directory
+variable    input_dir   index ""       # name of the directory with decamer.lammps
+
+# Cosine repulsion amplitude:
+#   0.1184 kJ/mol × 0.239006 kcal/kJ = 0.028278 kcal/mol per unit Erepulsion
+#   0.0282 kcal/mol is too small
+variable    A_soft  equal ${Erepulsion}*10   # kcal/mol
+
+# ---------------------------------------------------------------------------
+# SIMULATION BOX AND TOPOLOGY
+# ---------------------------------------------------------------------------
+units       real
+atom_style  bond
+boundary    p p p   # Periodic Boundary Conditions          
+
+read_data   ${input_dir}/decamer.lammps
+
+# ---------------------------------------------------------------------------
+# PAIR STYLE: hybrid/overlay
+#   soft     — cosine excluded-volume repulsion on ALL pairs
+#   table    — Gaussian native contact attraction on contact type pairs only
+#
+# soft: E(r) = A × (1 + cos(π r / r_nc))  for r < r_nc = 4 Å (avg amino acid is 4-10Å)
+# special_bonds lj 1 1 1 keeps 1-2/1-3/1-4 bonded pairs in the neighbor list,
+# matching the OpenMM setup (no exclusions on the repulsion force).
+# ---------------------------------------------------------------------------
+pair_style  hybrid/overlay soft 4 table linear 20000
+pair_coeff  * *  soft ${A_soft} 6
+include     ${input_dir}/native_contact_pair_coeffs.lammps
+
+special_bonds lj 1 1 1
+
+# ---------------------------------------------------------------------------
+# BOND STYLE: harmonic ENM bonds only
+#   E(r) = K (r - r0)²
+#   K = 50.0 kcal/mol/Å²  (one bond type per unique r0)
+# Native contacts are now pair interactions — no table bonds.
+# ---------------------------------------------------------------------------
+bond_style  harmonic
+
+include     ${input_dir}/harmonic_bond_coeffs.lammps
+
+# ---------------------------------------------------------------------------
+# INTEGRATOR: Langevin dynamics
+#
+# OpenMM:  LangevinIntegrator(300 K, friction=2 ps⁻¹, dt=10 fs)
+# LAMMPS:  fix langevin T T damp seed
+#          damp = 1/friction = 1/(2 ps⁻¹) = 0.5 ps = 500 fs
+# ---------------------------------------------------------------------------
+timestep    10.0            # fs
+
+fix     NVE  all nve
+fix     LANG all langevin 300.0 300.0 500.0 ${myseed}
+
+# ---------------------------------------------------------------------------
+# ENERGY MINIMIZATION  (matches simulation.minimizeEnergy(tolerance=0.1))
+#
+# CONCERN: there is no equilibration MD run between minimization and the
+# production run below — minimize() only relaxes bad contacts/clashes, it
+# does not bring the system to thermal equilibrium at 300 K. reset_timestep
+# happens immediately after, and dumping to seg.dcd starts on the very first
+# production step. If the original OpenMM workflow equilibrated before
+# recording, that step is missing here and should be added (e.g. a short
+# `run` under the Langevin fix, with dumps/thermo disabled, before
+# reset_timestep).
+# ---------------------------------------------------------------------------
+minimize    1.0e-4 1.0e-6 10000 100000
+
+write_data  ${output_dir}/minimized.lammps nocoeff
+write_dump  all custom ${output_dir}/minimized.lammpstrj id type xu yu zu modify sort id
+
+reset_timestep 0
+
+# ---------------------------------------------------------------------------
+# PRODUCTION OUTPUT  (matches DCD every 5000 steps + StateDataReporter every 5000)
+# ---------------------------------------------------------------------------
+dump        TRAJ all dcd 5000 ${output_dir}/seg.dcd
+
+thermo_style custom step ke pe etotal temp
+thermo      5000
+
+# ---------------------------------------------------------------------------
+# PRODUCTION RUN  (matches simulation.step(10000))
+# ---------------------------------------------------------------------------
+run         ${nsteps}
+
+write_data    ${output_dir}/seg_final.lammps nocoeff
+write_restart ${output_dir}/seg.restart
+
+print "------------------------------------------------------------"
+print "Trajectory dumped to: ${output_dir}/seg.dcd"
+print "------------------------------------------------------------"

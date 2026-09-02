@@ -1,0 +1,84 @@
+# HBV Decamer CG Oligomer — WE Segment Propagator
+# Split out of scripts/lammps_oligomer.in for use as a WESTPA runseg.sh driver.
+#
+# This is the per-segment half of the workflow: read a parent restart (a
+# basis state for iteration 1, or another segment's seg.restart for later
+# iterations), run a short chunk of Langevin dynamics (tau), then write a
+# new restart for the next iteration to branch from.
+#
+# No read_data / minimize here — topology + relaxation only happen once, in
+# make_basis_state.in. Force-field settings (pair_style/bond_style/coeffs)
+# are re-issued explicitly after read_restart rather than relying on them
+# having been serialized correctly, since the hybrid/overlay table pair
+# style references external table files by path.
+#
+# Run:
+#   lmp -in dynamics.in -var topology_dir {dir} -var parent_restart {path} \
+#       -var nsteps 5000 -var myseed 42 -var dump_freq 500
+#
+# NOTE: Enative (via topology_dir) must match the value used to build the
+# basis state — see lammps_oligomer.in.
+
+# ---------------------------------------------------------------------------
+# INPUT PARAMETERS  (override via -var on the command line)
+# ---------------------------------------------------------------------------
+variable    Erepulsion     index 1.0     # dimensionless scale on cosine repulsion
+variable    myseed         index 42      # Langevin random seed
+variable    nsteps         index 5000    # tau — WE segment length in timesteps
+variable    dump_freq      index 500     # frames per segment = nsteps/dump_freq
+variable    topology_dir   index ""      # dir with coeff/table files
+variable    parent_restart index ""      # full path to parent's restart file
+
+variable    A_soft  equal ${Erepulsion}*10   # kcal/mol
+
+# ---------------------------------------------------------------------------
+# SIMULATION BOX AND TOPOLOGY
+# ---------------------------------------------------------------------------
+units       real
+atom_style  bond
+boundary    p p p   # Periodic Boundary Conditions
+
+read_restart  ${parent_restart}
+
+# ---------------------------------------------------------------------------
+# PAIR STYLE: hybrid/overlay  (see lammps_oligomer.in for details)
+# ---------------------------------------------------------------------------
+pair_style  hybrid/overlay soft 4 table linear 20000
+pair_coeff  * *  soft ${A_soft} 6
+include     ${topology_dir}/native_contact_pair_coeffs.lammps
+
+special_bonds lj 1 1 1
+
+# ---------------------------------------------------------------------------
+# BOND STYLE: harmonic ENM bonds only
+# ---------------------------------------------------------------------------
+bond_style  harmonic
+
+include     ${topology_dir}/harmonic_bond_coeffs.lammps
+
+# ---------------------------------------------------------------------------
+# INTEGRATOR: Langevin dynamics
+# ---------------------------------------------------------------------------
+timestep    10.0            # fs
+
+fix     NVE  all nve
+fix     LANG all langevin 300.0 300.0 500.0 ${myseed}
+
+# ---------------------------------------------------------------------------
+# SEGMENT OUTPUT  (dcd + restart consumed by runseg.sh)
+# ---------------------------------------------------------------------------
+dump        TRAJ all dcd ${dump_freq} seg.dcd
+
+thermo_style custom step ke pe etotal temp
+thermo      ${dump_freq}
+
+# ---------------------------------------------------------------------------
+# SEGMENT RUN
+# ---------------------------------------------------------------------------
+run         ${nsteps}
+
+write_restart seg.restart
+
+print "------------------------------------------------------------"
+print "Segment trajectory dumped to: seg.dcd"
+print "------------------------------------------------------------"
