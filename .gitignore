@@ -15,6 +15,7 @@ bstates.txt
 bstates/*
 !bstates/.gitkeep
 init_files/lammps_out/
+init_files/lattice_pdbs/
 
 # Generated LAMMPS + analysis outputs, wherever they end up
 *.dcd
