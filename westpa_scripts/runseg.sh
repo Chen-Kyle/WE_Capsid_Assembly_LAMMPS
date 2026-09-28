@@ -28,15 +28,15 @@ myseed=$(( (RANDOM % 100000) + 1 ))
 lmp -in $WEST_SIM_ROOT/common_files/dynamics.in \
     -var topology_dir   $WEST_SIM_ROOT/init_files/lammps_out \
     -var parent_restart ./parent.restart \
-    -var nsteps         10000 \
-    -var dump_freq      1000 \
+    -var nsteps         100000 \
+    -var dump_freq      10000 \
     -var myseed         $myseed
 
 python $WEST_SIM_ROOT/common_files/get_pcoord.py \
     --traj       ./seg.dcd \
     --pdb        "$PDB_FILE" \
     --contactdir $WEST_SIM_ROOT/init_files/contact_files \
-    --pcoord_len 3 \
+    --pcoord_len 3  \
     > pc.dat
 
 cat pc.dat > $WEST_PCOORD_RETURN

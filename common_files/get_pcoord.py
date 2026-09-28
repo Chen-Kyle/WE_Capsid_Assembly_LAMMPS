@@ -37,7 +37,7 @@ def parse_args():
                    help='The number of contacts to be considered bonded')
     p.add_argument('--pcoord_len',
                    type=int,
-                   default=10,
+                   default=3,
                    help='Number of evenly-sampled pcoord values to report '
                         '(one largest-cluster-size value per sampled frame)')
     return p.parse_args()
