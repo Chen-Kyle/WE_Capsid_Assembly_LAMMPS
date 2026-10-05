@@ -3,7 +3,7 @@
 # Reports the basis state's initial progress coordinate (executable.get_pcoord
 # in west.cfg). Runs the same get_pcoord.py pipeline as runseg.sh, against
 # the trajectory init.sh's lammps_oligomer.in run already produced at
-# bstates/seg.dcd — a real (frame 0) value, not a placeholder.
+# bstates/seg.dcd — a real (final-frame) value, not a placeholder.
 #
 # A basis state is a single point, not a segment: WESTPA requires exactly
 # one pcoord value here (shape (1,)) regardless of the simulation's

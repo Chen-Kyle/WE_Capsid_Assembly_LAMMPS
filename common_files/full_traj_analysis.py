@@ -262,6 +262,8 @@ def build_all_clusters(iface_bonds, contacts_per_bond):
             s2partner_dimer = get_partner(s2)
             neighbors[s1].add(s1partner_dimer)
             neighbors[s2].add(s2partner_dimer)
+            neighbors[s1partner_dimer].add(s1)
+            neighbors[s2partner_dimer].add(s2)
 
         # BFS to find connected components
         visited = set()
@@ -416,6 +418,8 @@ def build_all_well_formed_clusters(iface_bonds, interface_data, contacts_per_bon
             s2partner_dimer = get_partner(s2)
             neighbors[s1].add(s1partner_dimer)
             neighbors[s2].add(s2partner_dimer)
+            neighbors[s1partner_dimer].add(s1)
+            neighbors[s2partner_dimer].add(s2)
 
         # BFS to find connected components
         visited = set()

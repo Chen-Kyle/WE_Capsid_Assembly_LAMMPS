@@ -1,16 +1,17 @@
 import os
-import pandas as pd
 import sys
 import argparse
 import pickle
 import subprocess
 import warnings
+import math
+from contextlib import redirect_stdout
 warnings.filterwarnings("ignore")
-import MDAnalysis as mda
+from min_eligible_distance import dimer_partner, min_eligible_distance_and_box_limit_per_frame
 
 # This file is going to take an input trajectory (seg.dcd) file, run
-# full_traj_analysis.py on it to build the cluster pickle, and then write
-# the max cluster size into the pc.dat file for capturing
+# full_traj_analysis.py on it to build the cluster pickle, and then write a
+# combined cluster-size and normalized-distance coordinate for sampled frames.
 
 WE_HBV_ENM_PATH = os.environ.get("WE_HBV_ENM_PATH", "/home/kyle/2026_Research/WE_HBV_enm")
 
@@ -38,8 +39,12 @@ def parse_args():
     p.add_argument('--pcoord_len',
                    type=int,
                    default=3,
-                   help='Number of evenly-sampled pcoord values to report '
-                        '(one largest-cluster-size value per sampled frame)')
+                   help='Number of stride-sampled pcoord values, ending at the final frame '
+                        '(one combined coordinate per sampled frame)')
+    p.add_argument('--distance_resid',
+                   type=int,
+                   default=135,
+                   help='Residue used for eligible-pair distance (default: 135)')
     return p.parse_args()
 
 
@@ -53,7 +58,7 @@ def run_full_traj_analysis(pdb, traj, contactdir, contacts):
     # script's stdout, which callers (get_pcoord.sh/runseg.sh) redirect
     # straight into WEST_PCOORD_RETURN and parse as floats.
     subprocess.run([
-        'python', f'{WE_HBV_ENM_PATH}/common_files/full_traj_analysis.py',
+        sys.executable, f'{WE_HBV_ENM_PATH}/common_files/full_traj_analysis.py',
         '--pdb', pdb,
         '--traj', traj,
         '--contactdir', contactdir,
@@ -72,29 +77,60 @@ def load_pickle(path):
 
 
 def get_cluster_size(pkl_data, frame):
-    """
-    From the given frame of the pickle file, gets the size of the largest
-    cluster. A frame with zero well-formed clusters anywhere in the whole
-    trajectory is dropped from the dict entirely by full_traj_analysis.py
-    (not stored as an empty list), so a missing key means the same thing
-    as an empty list: nothing is bonded yet, i.e. every subunit is its own
-    cluster of size 1.
+    """Return the number of permanent dimers in the largest well-formed cluster.
+
+    Analysis memberships contain chains. AB and CD pairs with matching
+    numeric suffixes each represent one dimer. A frame without assembled
+    interfaces contains isolated dimers, so its largest cluster has size 1.
     """
     frame_clusters = pkl_data['all_well_formed_clusters'].get(frame)
-
     if not frame_clusters:
         return 1
 
-    return max(len(cluster['segids']) for cluster in frame_clusters)
+    sizes = []
+    for cluster in frame_clusters:
+        segids = set(cluster['segids'])
+        dimers = set()
+        for segid in segids:
+            partner = dimer_partner(segid)
+            if partner not in segids:
+                raise ValueError(f'Incomplete dimer in frame {frame}: '
+                                 f'{segid} is missing partner {partner}')
+            dimers.add(tuple(sorted((segid, partner))))
+        sizes.append(len(dimers))
+    return max(1, max(sizes))
 
 
 def sample_frame_indices(n_frames, pcoord_len):
+    """Keep existing stride samples, replacing the last with the final frame.
+
+    The number of output values is unchanged. A single requested value
+    describes the final frame (also used for the basis-state restart).
     """
-    Evenly samples pcoord_len frame indices across [0, n_frames), by
-    striding every (n_frames // pcoord_len) frames from frame 0.
-    """
+    if n_frames < 1 or pcoord_len < 1:
+        raise ValueError('n_frames and pcoord_len must both be positive')
     stride = max(n_frames // pcoord_len, 1)
-    return [min(i * stride, n_frames - 1) for i in range(pcoord_len)]
+    frames = [min(i * stride, n_frames - 1) for i in range(pcoord_len)]
+    frames[-1] = n_frames - 1
+    return frames
+
+
+def get_progress_coordinate(cluster_size, min_distance, box_limit, *, distance_status=None):
+    """Combine cluster size and box-normalized minimum-distance progress."""
+    if min_distance is None and distance_status in ('fully_connected', 'no_eligible_partner'):
+        # No attachment-distance bonus when there is no measurable encounter.
+        # A fully connected cluster is not necessarily a closed capsid.
+        if distance_status == 'no_eligible_partner':
+            print('No eligible partner for the largest cluster; using size alone.', file=sys.stderr)
+        return float(cluster_size)
+    if (min_distance is None or not math.isfinite(float(min_distance))
+            or min_distance < 0):
+        raise ValueError(f'minimum eligible distance must be non-negative and finite; got {min_distance}')
+    if not math.isfinite(float(box_limit)) or box_limit <= 0:
+        raise ValueError(f'box distance limit must be positive and finite; got {box_limit}')
+
+    closeness = max(0.0, min(1.0, 1.0 - min_distance / box_limit))
+    return cluster_size + closeness * 0.99
 
 
 if __name__ == '__main__':
@@ -102,11 +138,19 @@ if __name__ == '__main__':
     pkl_path = run_full_traj_analysis(args.pdb, args.traj, args.contactdir, args.contacts)
     pkl_data = load_pickle(pkl_path)
 
-    # Read the true frame count directly from the trajectory rather than
-    # from all_well_formed_clusters' keys -- that dict has no entry at all
-    # for a frame with zero well-formed clusters (see get_cluster_size),
-    # so if the whole trajectory is unbonded (e.g. a dissociated basis
-    # state) its keys() would be empty even though real frames exist.
-    n_frames = len(mda.Universe(args.pdb, args.traj).trajectory)
+    # Keep helper progress messages out of stdout, which callers use as pcoord data.
+    with redirect_stdout(sys.stderr):
+        measurements = min_eligible_distance_and_box_limit_per_frame(
+            args.pdb, args.traj, args.distance_resid,
+            pkl_data['all_well_formed_clusters'], return_details=True)
+
+    n_frames = len(measurements)
+    if n_frames == 0:
+        raise ValueError('trajectory contains no frames')
+
     for frame in sample_frame_indices(n_frames, args.pcoord_len):
-        print(get_cluster_size(pkl_data, frame))
+        cluster_size = get_cluster_size(pkl_data, frame)
+        measurement = measurements[frame]
+        print(get_progress_coordinate(
+            cluster_size, measurement['distance'], measurement['box_limit'],
+            distance_status=measurement['status']))
