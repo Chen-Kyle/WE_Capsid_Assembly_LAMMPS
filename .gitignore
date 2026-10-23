@@ -43,3 +43,21 @@ __pycache__/
 
 # Local tests (kept on disk, not tracked)
 /tests/
+
+# Isolated local pilot output
+/pilots/
+
+# Additional runtime logs and scheduler output
+*.logs
+*.log.*
+*.err
+slurm-*.out
+.logs/
+logs/
+
+# Local-only pilot launcher and notes
+/pilot_local.py
+/PILOT.md
+
+# Local orientation diagnostic
+/common_files/orientation_diagnostics.py

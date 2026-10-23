@@ -32,7 +32,7 @@ mkdir $WEST_SIM_ROOT/west_files
 
 # Sends the segment trajectories to this directory
 # Must be an absolute path
-OUTPUT_DIR=/scratch0/kylechen/WE_HBV_ENM
+OUTPUT_DIR=/home/kyle/2026_Research/WE_HBV_enm
 mkdir -p $OUTPUT_DIR/traj_segs $OUTPUT_DIR/seg_logs
 
 Enative=1
@@ -53,7 +53,7 @@ export PDB_FILE="$pdb_file"
 lmp -in ${WE_HBV_ENM_PATH}/init_files/lammps_oligomer.in   \
     -var output_dir $WEST_SIM_ROOT/bstates \
     -var input_dir $WEST_SIM_ROOT/init_files/lammps_out  \
-    -var nsteps 100000         \
+    -var nsteps 10000         \
 
 topology_dir=$WEST_SIM_ROOT/init_files/lammps_out
 # Describe the basis state to WESTPA: seg.restart (written by

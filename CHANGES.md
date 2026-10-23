@@ -1,5 +1,8 @@
 # Table of contents
 
+- [2026-10-22](#2026-10-22)
+- [2026-10-16](#2026-10-16)
+- [October 6, 2026](#2026-10-06)
 - [October 5, 2026](#2026-10-05)
 
 ---
@@ -44,7 +47,55 @@
 
 - **Change logs:** updated both versions to record this tracking change.
 
+### Local pilot
+
+- **west.cfg:** limited the run to four iterations and three walkers per occupied bin.
+
+- **pilot_local.py:** added a separate pilot with one segment at a time, one CPU core, memory safeguards, distance bins, and automatic reports.
+
+- **orientation_diagnostics.py:** added distance and orientation records for nearby eligible pairs without changing the progress score.
+
+- **.gitignore:** kept generated pilot runs out of Git.
+
+- **PILOT.md:** added instructions for starting, monitoring, and stopping the local pilot.
+
+- **Change logs:** recorded the pilot setup in both versions.
+
 [See file-by-file details for this date](CHANGES_TECHNICAL.md#2026-10-05)
+
+---
+
+## 2026-10-06
+
+### Pilot launched
+
+- **Local run:** started the four-iteration pilot with three walkers per occupied bin and confirmed about 350 MiB of combined memory use during its first segment.
+
+- **Change logs:** recorded the launch date and added navigation for October 6 in both versions.
+
+---
+
+## 2026-10-16
+
+### Pilot results
+
+- **PILOT.md:** recorded that all four iterations finished in about 1 hour 51 minutes using at most 471 MiB of sampled combined memory, with no close binding encounters to justify an orientation penalty.
+
+- **Reference check:** found that half of the AA reference interfaces fall outside the current shared angle window, which needs investigation before changing the score.
+
+- **CHANGES.md and CHANGES_TECHNICAL.md:** added this dated outcome summary and navigation link.
+
+---
+
+## 2026-10-22
+
+- **.gitignore:** kept the orientation diagnostic script local and excluded it from Git.
+
+- **Change logs:** recorded the orientation-script exclusion in both versions.
+
+- **.gitignore:** excluded extra log formats, scheduler output, and local pilot scripts, notes, and results while keeping reusable analysis code available to commit.
+
+- **Change logs:** recorded the ignore-rule update in both versions.
 
 ---
 
