@@ -1,5 +1,6 @@
 # Table of contents
 
+- [October 29, 2026](#2026-10-29)
 - [2026-10-22](#2026-10-22)
 - [2026-10-16](#2026-10-16)
 - [October 6, 2026](#2026-10-06)
@@ -89,6 +90,10 @@
 
 ## 2026-10-22
 
+- **runwe.slurm:** limited numerical libraries to one thread per process to prevent excessive thread creation during analysis.
+
+- **Change logs:** recorded the thread-limit change in both versions.
+
 - **.gitignore:** kept the orientation diagnostic script local and excluded it from Git.
 
 - **Change logs:** recorded the orientation-script exclusion in both versions.
@@ -96,6 +101,22 @@
 - **.gitignore:** excluded extra log formats, scheduler output, and local pilot scripts, notes, and results while keeping reusable analysis code available to commit.
 
 - **Change logs:** recorded the ignore-rule update in both versions.
+
+---
+
+## 2026-10-29
+
+### Faster initial equilibration
+
+- **init.sh:** the initial LAMMPS equilibration before `w_init` now runs in parallel across the full node allocation instead of one task, and records an alternate scratch output path for reference.
+
+### Smaller test-scale bins
+
+- **west.cfg:** rebuilt the progress-coordinate bins around a 10-dimer test assembly instead of 120, keeping the same fine closeness-resolution pattern used near full assembly, and set walker counts per bin to increase as the assembly gets closer to complete.
+
+- **Change logs:** recorded the initial-equilibration and bin changes in both versions.
+
+[See file-by-file details for this date](CHANGES_TECHNICAL.md#2026-10-29)
 
 ---
 

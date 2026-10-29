@@ -1,5 +1,6 @@
 # Table of contents
 
+- [2026-10-29](#2026-10-29)
 - [2026-10-22](#2026-10-22)
 - [2026-10-16](#2026-10-16)
 - [2026-10-06](#2026-10-06)
@@ -191,6 +192,18 @@ Recorded the final pilot findings and October 16 navigation link, with orientati
 
 ## 2026-10-22
 
+**runwe.slurm**
+
+Exported `OPENBLAS_NUM_THREADS=1`, `OMP_NUM_THREADS=1`, `MKL_NUM_THREADS=1`, and `NUMEXPR_NUM_THREADS=1` after environment setup and before `w_run`, allowing worker and analysis subprocesses to inherit the limits.
+
+**CHANGES.md**
+
+Added the plain-language thread-limit summary under 2026-10-22.
+
+**CHANGES_TECHNICAL.md**
+
+Recorded the launcher thread-limit implementation under 2026-10-22.
+
 **.gitignore**
 
 Added `/common_files/orientation_diagnostics.py` to exclude the local diagnostic script from version control.
@@ -214,6 +227,26 @@ Added the plain-language ignore-rule summary and October 22 navigation link.
 **CHANGES_TECHNICAL.md**
 
 Recorded the exact ignore patterns and October 22 navigation link.
+
+---
+
+## 2026-10-29
+
+**init.sh**
+
+Ran the initial LAMMPS equilibration under `mpirun -n $SLURM_NTASKS` instead of a single serial `lmp` process, raised `--ntasks-per-node` to 32 to match, and noted an alternate `/scratch0` output path alongside the existing `OUTPUT_DIR`.
+
+**west.cfg**
+
+Replaced the placeholder single-bin `RectilinearBinMapper` (`[1.0, 1.86278101, 1.95365172, 2.0]`, `bin_target_counts: 3`) with 55 bins spanning integer cluster sizes 1-10, reusing the closeness-subdivision offsets (`0.86278101, 0.92639050, 0.95365172, 0.97182586, 0.98091293`) previously used near full assembly in the 120-dimer design, scaled down for a 10-dimer test system. Set `bin_target_counts` to increase with cluster size, from 5 walkers per bin at size 1 up to 14 at the final 10-to-infinity bin, allocating more walkers as the assembly nears completion.
+
+**CHANGES.md**
+
+Added the plain-language equilibration-parallelism and bin-redesign summary under 2026-10-29.
+
+**CHANGES_TECHNICAL.md**
+
+Recorded the init.sh and west.cfg implementation details under 2026-10-29.
 
 ---
 

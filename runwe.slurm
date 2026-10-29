@@ -13,6 +13,13 @@
 module purge
 source env.sh
 
+# WESTPA parallelizes across walkers; avoid nested numerical-library threads.
+# Export before w_run imports NumPy so workers and analysis children inherit it.
+export OPENBLAS_NUM_THREADS=1
+export OMP_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+export NUMEXPR_NUM_THREADS=1
+
 
 rm -f west.log
 w_run --work-manager processes "$@" &> west-${SLURM_JOB_ID}.log

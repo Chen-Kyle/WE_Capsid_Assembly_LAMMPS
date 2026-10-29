@@ -2,7 +2,7 @@
 #SBATCH --account=hagan-lab
 #SBATCH --partition=hagan-compute
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=1
+#SBATCH --ntasks-per-node=32
 #SBATCH --output=slurm_init_%j.out
 #
 # Submit with: sbatch init.sh
@@ -33,6 +33,7 @@ mkdir $WEST_SIM_ROOT/west_files
 # Sends the segment trajectories to this directory
 # Must be an absolute path
 OUTPUT_DIR=/home/kyle/2026_Research/WE_HBV_enm
+#/scratch0/kylechen/WE_HBV_ENM
 mkdir -p $OUTPUT_DIR/traj_segs $OUTPUT_DIR/seg_logs
 
 Enative=1
@@ -50,7 +51,7 @@ pdb_file=$WEST_SIM_ROOT/init_files/lattice_pdbs/lattice=cubic_Ndimers=120_blengt
 python $WEST_SIM_ROOT/init_files/generate_lammps_data.py --pdb $pdb_file --Enative $Enative
 export PDB_FILE="$pdb_file"
 # Run lammps_oligomer.in
-lmp -in ${WE_HBV_ENM_PATH}/init_files/lammps_oligomer.in   \
+time mpirun -n $SLURM_NTASKS lmp -in ${WE_HBV_ENM_PATH}/init_files/lammps_oligomer.in   \
     -var output_dir $WEST_SIM_ROOT/bstates \
     -var input_dir $WEST_SIM_ROOT/init_files/lammps_out  \
     -var nsteps 10000         \
